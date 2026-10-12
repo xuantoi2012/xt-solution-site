@@ -1,17 +1,6 @@
-document.querySelectorAll('[data-mode]').forEach(button => {
-  button.addEventListener('click', () => {
-    document.querySelector('.revision-drawing').dataset.mode = button.dataset.mode;
-    document.querySelectorAll('button[data-mode]').forEach(item => {
-      const active = item === button;
-      item.classList.toggle('active', active);
-      item.setAttribute('aria-pressed', String(active));
-    });
-  });
-});
-const privacy = document.querySelector('#privacy');
-document.querySelector('.privacy-button').addEventListener('click', () => privacy.showModal());
-document.querySelector('.dialog-close').addEventListener('click', () => privacy.close());
-privacy.addEventListener('click', event => {
-  const bounds = privacy.getBoundingClientRect();
-  if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) privacy.close();
-});
+import {siteConfig} from './config.js';
+import {selectRelease} from './release.js';
+const dialog=document.getElementById('image-dialog');
+document.querySelectorAll('[data-image]').forEach(button=>button.addEventListener('click',()=>{document.getElementById('expanded-image').src=button.dataset.image;dialog.showModal();}));
+document.getElementById('close-image').addEventListener('click',()=>dialog.close());dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});
+(async()=>{const label=document.getElementById('release-info');try{const response=await fetch(siteConfig.releaseApi,{headers:{Accept:'application/vnd.github+json'},signal:AbortSignal.timeout(8000),credentials:'omit',cache:'no-store'});if(!response.ok)throw new Error('release unavailable');const release=selectRelease(await response.json());if(!release)throw new Error('no official asset');const button=document.getElementById('download-button');button.href=release.url;button.textContent='Tải Reader '+release.version+' ↓';label.textContent='Windows x64 · '+release.version+' · '+(release.size/1048576).toFixed(1)+' MB · Bộ cài chính thức';}catch{label.textContent='Windows x64 · Xem phiên bản và bộ cài tại kho phát hành XT Solution.';}})();
