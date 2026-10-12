@@ -3,7 +3,7 @@ import {escapeHtml as e,dateLabel as date,licenseInfo} from '../admin/model.js';
 import {requestSelection,validateRequest,requestLabels,durations} from './model.js';
 import {accountViews,accountView} from './navigation.js';
 import {icon} from '/assets/icons.js';
-let sharedApi;
+let sharedApi, cachedAccount;
 export function mount(root){
 let disposed=false;
 const events=new AbortController();
@@ -28,9 +28,9 @@ function render(){
  $('history').innerHTML=data.requests.map(r=>`<article class="history-item"><div><h3>${r.kind==='purchase'?'Mua license mới':'Gia hạn license'}${r.duration_months?' · '+e(durations[r.duration_months]||r.duration_months+' tháng'):''}</h3><small>Mã ${e(r.id.slice(0,8).toUpperCase())} · ${date(r.created_at,true)}</small><p>${e(r.message)}</p>${r.response_note?`<div class="response-card"><strong>XT SOLUTION PHẢN HỒI</strong><p>${e(r.response_note)}</p></div>`:''}${r.status==='approved'?'<p class="form-note">License đã được cập nhật. Mở Reader → About → Manage license → Check again.</p>':''}</div><div class="history-side"><span class="tag ${r.status==='approved'?'success':r.status==='pending'?'warning':'muted'}">${e(requestLabels[r.status]||r.status)}</span>${r.status==='pending'?`<button type="button" class="text-button" data-cancel="${e(r.id)}">Hủy yêu cầu</button>`:`<small>${date(r.reviewed_at,true)}</small>`}</div></article>`).join('')||'<div class="empty">Chưa có yêu cầu nào. Khi bạn cần mua hoặc gia hạn, XT sẽ theo dõi và phản hồi tại đây.</div>';
  $('send-request').disabled=busy||pending()||user.status==='Suspended';$('pending-note').textContent=pending()?'Bạn có một yêu cầu đang chờ XT phản hồi. Xem trạng thái và phản hồi phía dưới; không cần gửi lại.':user.status==='Suspended'?'Tài khoản đang bị khóa. Hãy liên hệ XT.':'';$('renew-license').textContent=user.paid_until?'Gia hạn license ↗':'Mua license ↗';$('renew-license').disabled=user.status==='Suspended';$('last-sync').textContent='Cập nhật lúc '+new Date().toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'});
 }
-async function load(){const generation=epoch,result=await api.rpc('reader_account');if(generation!==epoch)return false;if(!result?.profile||!Array.isArray(result.devices)||!Array.isArray(result.requests))throw new Error('Chưa đọc được hồ sơ tài khoản. Hãy thử làm mới hoặc liên hệ XT.');data=result;render();return true;}
+async function load(){const generation=epoch,result=await api.rpc('reader_account');if(generation!==epoch)return false;if(!result?.profile||!Array.isArray(result.devices)||!Array.isArray(result.requests))throw new Error('Chưa đọc được hồ sơ tài khoản. Hãy thử làm mới hoặc liên hệ XT.');data=result;cachedAccount={data:result,generation:api.generation};render();return true;}
 function enter(){if(disposed||!data)return;$('account-login').hidden=true;$('account-content').hidden=false;document.body.classList.add('account-signedin');if(!new URLSearchParams(location.search).has('intent'))$('kind').value=data.profile.paid_until?'renewal':'purchase';showView(accountView(location.hash,location.search),false);clearInterval(timer);timer=setInterval(poll,30000);if(location.hash==='#renew')focusRequest();}
-function leave(message=''){if(disposed)return;epoch++;clearInterval(timer);api.clear();data=null;$('account-content').hidden=true;$('account-login').hidden=false;document.body.classList.remove('account-signedin');$('history').innerHTML='';$('devices').innerHTML='';$('password').value='';$('message').value='';feedback('account-message','');feedback('auth-message',message);}
+function leave(message=''){if(disposed)return;epoch++;clearInterval(timer);api.clear();cachedAccount=null;data=null;$('account-content').hidden=true;$('account-login').hidden=false;document.body.classList.remove('account-signedin');$('history').innerHTML='';$('devices').innerHTML='';$('password').value='';$('message').value='';feedback('account-message','');feedback('auth-message',message);}
 async function run(action,where='account-message'){if(busy)return;busy=true;feedback(where,'');try{await action();}catch(error){if(error.code==='AUTH_REQUIRED'){leave(errorMessage(error));return;}feedback(where,errorMessage(error));}finally{busy=false;$('login').disabled=false;$('recover-submit').disabled=false;$('resend').disabled=false;if(data)$('send-request').disabled=pending()||data.profile.status==='Suspended';}}
 async function poll(){if(disposed||polling||busy||document.hidden||!data||$('confirm-dialog').open)return;polling=true;try{await load();}catch(error){if(error.code==='AUTH_REQUIRED')leave(errorMessage(error));else $('last-sync').textContent='Chưa đồng bộ được. Hãy bấm Làm mới.';}finally{polling=false;}}
 function confirmAction(message){return new Promise(resolve=>{const dialog=$('confirm-dialog');$('confirm-message').textContent=message;const finish=value=>{dialog.close();$('confirm-yes').onclick=$('confirm-no').onclick=dialog.oncancel=null;resolve(value);};$('confirm-yes').onclick=()=>finish(true);$('confirm-no').onclick=()=>finish(false);dialog.oncancel=event=>{event.preventDefault();finish(false);};dialog.showModal();});}
@@ -43,6 +43,31 @@ $('resend').addEventListener('click',()=>{if(!$('email').reportValidity())return
 $('request-form').addEventListener('submit',event=>{event.preventDefault();run(async()=>{if(pending()||data.profile.status==='Suspended')return;const request=validateRequest($('kind').value,$('months').value,$('message').value);$('send-request').disabled=true;await api.rpc('reader_request_license',request);$('message').value='';await load();feedback('account-message','Đã gửi yêu cầu. XT sẽ phản hồi tại mục “Yêu cầu & phản hồi”.',true);showView('history');$('history').scrollIntoView({behavior:'smooth',block:'start'});});});
 on(root,'click',event=>{const button=event.target.closest('[data-cancel],[data-device]');if(!button||busy||button.disabled||!data)return;run(async()=>{if(!await confirmAction(button.dataset.device?'Gỡ máy tính này khỏi tài khoản? Máy cũ cần đăng nhập lại khi bạn muốn sử dụng.':'Hủy yêu cầu đang chờ này? Bạn có thể gửi yêu cầu mới sau khi hủy.'))return;button.disabled=true;const generation=epoch;await api.rpc(button.dataset.device?'reader_account_remove_device':'reader_cancel_request',button.dataset.device?{p_device:button.dataset.device}:{p_request:button.dataset.cancel});if(generation!==epoch)return;await load();feedback('account-message',button.dataset.device?'Đã gỡ máy khỏi tài khoản.':'Đã hủy yêu cầu.',true);});});
 $('refresh').addEventListener('click',()=>run(async()=>{await load();feedback('account-message','Đã cập nhật trạng thái mới nhất.',true);}));$('renew-license').addEventListener('click',focusRequest);$('signout').addEventListener('click',()=>{const logout=api.signOut();leave();void logout;});on(window,'online',poll);on(document,'visibilitychange',()=>{if(!document.hidden)poll();});
-(async()=>{$('session-loading').hidden=false;try{if((api.access||await api.restore())&&!disposed&&await load())enter();}catch(error){if(disposed)return;if(error.code!=='NETWORK')api.clear();feedback('auth-message',errorMessage(error));}finally{$('session-loading').hidden=true;}if(new URLSearchParams(location.search).get('mode')==='signup')setMode(true);})();
+async function resolveSession(){
+ if(disposed||resolving)return;
+ resolving=true;
+ $('session-retry').hidden=true;
+ if(!data){$('account-login').hidden=true;$('session-loading').hidden=false;$('session-status').textContent='Đang kiểm tra tài khoản…';}
+ try{
+  const authenticated=api.access||await api.restore();
+  if(disposed)return;
+  if(!authenticated){cachedAccount=null;$('account-login').hidden=false;if(new URLSearchParams(location.search).get('mode')==='signup')setMode(true);return;}
+  if(await load())enter();
+ }catch(error){
+  if(disposed)return;
+  if(error.code==='AUTH_REQUIRED'||(!api.access&&!api.refreshToken&&error.code!=='NETWORK')){leave(errorMessage(error));return;}
+  if(data){feedback('account-message','Chưa đồng bộ được dữ liệu mới. '+errorMessage(error));}
+  else{$('session-status').textContent=errorMessage(error);$('session-retry').hidden=false;}
+ }finally{
+  resolving=false;
+  if(!disposed)$('session-loading').hidden=!!data||!$('account-login').hidden;
+ }
+}
+let resolving=false;
+// Memory-only snapshot belongs to this authenticated session, never to a different login.
+if(api.access&&api.clock()<api.expires&&cachedAccount?.generation===api.generation){data=cachedAccount.data;render();enter();$('session-loading').hidden=true;$('last-sync').textContent='Đang cập nhật dữ liệu…';}
+$('session-retry').addEventListener('click',resolveSession);
+void resolveSession();
+
 return {canLeave:()=>!(busy||root.querySelector('dialog[open]')!==null),dispose(){disposed=true;events.abort();epoch++;clearInterval(timer);document.body.classList.remove('account-signedin');root.querySelectorAll('dialog[open]').forEach(dialog=>dialog.close());root.querySelectorAll('input[type=password]').forEach(input=>input.value='');}};
 }
