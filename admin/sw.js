@@ -1,5 +1,5 @@
-const CACHE = 'xt-admin-shell-v2';
-const SHELL = ['./', './index.html', './admin.css', './app.js', './api.js', './model.js', './demo.js', './renewal.js', '../config.js', '../account/model.js', './icon.svg', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
+const CACHE = 'xt-admin-shell-v3';
+const SHELL = ['./', './index.html', './admin.css', './app.js', './api.js', './model.js', './demo.js', './renewal.js', './request-filter.js', './workspace.css', '../assets/xt-ui.css', '../assets/icons.svg', '../assets/reader-icon.png', '../config.js', '../account/model.js', './icon.svg', './manifest.webmanifest', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', event => { event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL))); });
 self.addEventListener('activate', event => { event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('xt-admin-shell-') && key !== CACHE).map(key => caches.delete(key))))); });
 self.addEventListener('fetch', event => {

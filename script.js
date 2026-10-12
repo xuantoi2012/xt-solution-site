@@ -1,5 +1,8 @@
 import {siteConfig} from './config.js';
 import {selectRelease} from './release.js';
+const toolTabs=[...document.querySelectorAll('.studio-tabs [role=tab]')];
+function selectTool(tab,focus=false){for(const item of toolTabs){const selected=item===tab;item.setAttribute('aria-selected',String(selected));item.tabIndex=selected?0:-1;document.getElementById(item.getAttribute('aria-controls')).hidden=!selected;}if(focus)tab.focus();}
+for(const tab of toolTabs){tab.addEventListener('click',()=>selectTool(tab));tab.addEventListener('keydown',event=>{const index=toolTabs.indexOf(tab);let next;if(event.key==='ArrowRight')next=(index+1)%toolTabs.length;if(event.key==='ArrowLeft')next=(index+toolTabs.length-1)%toolTabs.length;if(event.key==='Home')next=0;if(event.key==='End')next=toolTabs.length-1;if(next!==undefined){event.preventDefault();selectTool(toolTabs[next],true);}});}
 const dialog=document.getElementById('image-dialog');
 document.querySelectorAll('[data-image]').forEach(button=>button.addEventListener('click',()=>{document.getElementById('expanded-image').src=button.dataset.image;dialog.showModal();}));
 document.getElementById('close-image').addEventListener('click',()=>dialog.close());dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});

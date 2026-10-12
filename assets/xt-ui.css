@@ -1,0 +1,11 @@
+/* Shared XT design tokens. Local assets only; no external fonts or trackers. */
+:root{--accent:#ea580c;--accent-dark:#c2410c;--ink:#18181b;--muted:#71717a;--line:#e4e4e7;--bg:#fafafa;--radius:12px;font-family:'Segoe UI',Arial,sans-serif}
+.xt-icon{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0;vertical-align:middle}
+.mark,.brand-mark,.mini-logo{background:#18181b;color:white;border-radius:10px;font-weight:800;letter-spacing:-1px}
+.button,.primary,.secondary{border-radius:8px;font-weight:600;transition:background .15s,border-color .15s}
+.primary{background:var(--accent)}.primary:hover{background:var(--accent-dark)}
+.secondary{border-color:var(--line);background:white;color:var(--ink)}
+.eyebrow{font-size:10px;font-weight:650;letter-spacing:1.5px}
+:focus-visible{outline:3px solid #fb923c80;outline-offset:3px}
+button:disabled{cursor:not-allowed}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{animation:none!important;transition:none!important}}
